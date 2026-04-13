@@ -11,6 +11,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timeoutID = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Request timed out. Check server connection and retry.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutID);
+  }
+}
+
 document
   .getElementById("video-draft-form")
   .addEventListener("submit", async (event) => {
@@ -30,7 +49,7 @@ async function createVideoDraft() {
   const description = document.getElementById("video-description").value;
 
   try {
-    const res = await fetch("/api/videos", {
+    const res = await fetchWithTimeout("/api/videos", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -38,6 +57,10 @@ async function createVideoDraft() {
       },
       body: JSON.stringify({ title, description }),
     });
+    if (res.status === 401) {
+      logout();
+      throw new Error("Session expired. Please log in again.");
+    }
     const data = await res.json();
     if (!res.ok) {
       throw new Error(`Failed to create video draft: ${data.error}`);
@@ -58,7 +81,7 @@ async function login() {
   const password = document.getElementById("password").value;
 
   try {
-    const res = await fetch("/api/login", {
+    const res = await fetchWithTimeout("/api/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -88,7 +111,7 @@ async function signup() {
   const password = document.getElementById("password").value;
 
   try {
-    const res = await fetch("/api/users", {
+    const res = await fetchWithTimeout("/api/users", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -134,13 +157,17 @@ async function uploadThumbnail(videoID) {
   setUploadButtonState(true, uploadBtnSelector);
 
   try {
-    const res = await fetch(`/api/thumbnail_upload/${videoID}`, {
+    const res = await fetchWithTimeout(`/api/thumbnail_upload/${videoID}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
       body: formData,
     });
+    if (res.status === 401) {
+      logout();
+      throw new Error("Session expired. Please log in again.");
+    }
     if (!res.ok) {
       const data = await res.json();
       throw new Error(`Failed to upload thumbnail. Error: ${data.error}`);
@@ -167,13 +194,17 @@ async function uploadVideoFile(videoID) {
   setUploadButtonState(true, uploadBtnSelector);
 
   try {
-    const res = await fetch(`/api/video_upload/${videoID}`, {
+    const res = await fetchWithTimeout(`/api/video_upload/${videoID}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
       body: formData,
     });
+    if (res.status === 401) {
+      logout();
+      throw new Error("Session expired. Please log in again.");
+    }
     if (!res.ok) {
       const data = await res.json();
       throw new Error(`Failed to upload video file. Error: ${data.error}`);
@@ -192,12 +223,16 @@ const videoStateHandler = createVideoStateHandler();
 
 async function getVideos() {
   try {
-    const res = await fetch("/api/videos", {
+    const res = await fetchWithTimeout("/api/videos", {
       method: "GET",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     });
+    if (res.status === 401) {
+      logout();
+      throw new Error("Session expired. Please log in again.");
+    }
     if (!res.ok) {
       const data = await res.json();
       throw new Error(`Failed to get videos. Error: ${data.error}`);
@@ -235,12 +270,16 @@ function createVideoStateHandler() {
 
 async function getVideo(videoID) {
   try {
-    const res = await fetch(`/api/videos/${videoID}`, {
+    const res = await fetchWithTimeout(`/api/videos/${videoID}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     });
+    if (res.status === 401) {
+      logout();
+      throw new Error("Session expired. Please log in again.");
+    }
     if (!res.ok) {
       throw new Error("Failed to get video.");
     }
@@ -288,12 +327,16 @@ async function deleteVideo() {
   }
 
   try {
-    const res = await fetch(`/api/videos/${currentVideo.id}`, {
+    const res = await fetchWithTimeout(`/api/videos/${currentVideo.id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     });
+    if (res.status === 401) {
+      logout();
+      throw new Error("Session expired. Please log in again.");
+    }
     if (!res.ok) {
       throw new Error("Failed to delete video.");
     }

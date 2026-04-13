@@ -37,9 +37,9 @@ export function getVideos(db: Database, userID: string): Video[] {
       updated_at,
       title,
       description,
+      user_id,
       thumbnail_url,
-      video_url,
-      user_id
+      video_url
     FROM videos
     WHERE user_id = ?
     ORDER BY created_at DESC
